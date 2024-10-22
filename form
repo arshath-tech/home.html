@@ -1,0 +1,291 @@
+import React, { useState } from 'react';
+import axios from 'axios';
+import './Form.css';
+
+const Form = () => {
+    const [step, setStep] = useState(1); // Step 1: Create Questions, Step 2: Answer Questions
+    const [title, setTitle] = useState('');
+    const [questions, setQuestions] = useState([{ question_text: '', question_type: '', options: [] }]);
+    const [answers, setAnswers] = useState({});
+    const [files, setFiles] = useState({});
+
+    const handleSubmitQuestions = async (e) => {
+        e.preventDefault();
+        // Optionally send questions to your API or save them
+        // Here we're just transitioning to the next step
+        setStep(2);
+    };
+
+    const handleFinalSubmit = async (e) => {
+        e.preventDefault();
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('questions', JSON.stringify(questions));
+        formData.append('answers', JSON.stringify(answers));
+        
+        Object.keys(files).forEach((key) => {
+            formData.append(`file_${key}`, files[key]);
+        });
+
+        try {
+            await axios.post('http://localhost:8000/api/forms/', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            alert("Form submitted successfully!");
+        } catch (error) {
+            console.error("There was an error submitting the form!", error);
+        }
+    };
+
+    const handleAddQuestion = () => {
+        setQuestions([...questions, { question_text: '', question_type: '', options: [] }]);
+    };
+
+    const handleRemoveQuestion = (index) => {
+        const newQuestions = questions.filter((_, i) => i !== index);
+        setQuestions(newQuestions);
+        const newAnswers = { ...answers };
+        delete newAnswers[index];
+        setAnswers(newAnswers);
+        const newFiles = { ...files };
+        delete newFiles[index];
+        setFiles(newFiles);
+    };
+
+    const handleAddOption = (index) => {
+        const newQuestions = [...questions];
+        newQuestions[index].options.push('');
+        setQuestions(newQuestions);
+    };
+
+    const handleOptionChange = (questionIndex, optionIndex, value) => {
+        const newQuestions = [...questions];
+        newQuestions[questionIndex].options[optionIndex] = value;
+        setQuestions(newQuestions);
+    };
+
+    const handleAnswerChange = (index, value) => {
+        setAnswers((prevAnswers) => ({
+            ...prevAnswers,
+            [index]: value
+        }));
+    };
+
+    const handleFileChange = (index, event) => {
+        const file = event.target.files[0];
+        setFiles((prevFiles) => ({
+            ...prevFiles,
+            [index]: file
+        }));
+    };
+
+    return (
+        <div style={{ maxWidth: '2000px', margin: 'auto', padding: '30px', border: '1px solid #ccc', borderRadius: '8px' }}>
+            <h1>Create Your Form</h1>
+
+            {step === 1 && (
+                <form onSubmit={handleSubmitQuestions}>
+                    <input 
+                        type="text" 
+                        value={title} 
+                        onChange={(e) => setTitle(e.target.value)} 
+                        placeholder="Form Title" 
+                        required 
+                        style={{ width: '80%', padding: '15px', marginBottom: '20px', fontSize: '16px' }}
+                    />
+                    {questions.map((q, index) => (
+                        <div key={index} style={{ marginBottom: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                                <input
+                                    type="text"
+                                    value={q.question_text}
+                                    onChange={(e) => {
+                                        const newQuestions = [...questions];
+                                        newQuestions[index].question_text = e.target.value;
+                                        setQuestions(newQuestions);
+                                    }}
+                                    placeholder="Question"
+                                    required
+                                    style={{ flex: '1', padding: '15px', fontSize: '16px', marginRight: '10px' }} 
+                                />
+                                <select
+                                    value={q.question_type}
+                                    onChange={(e) => {
+                                        const newQuestions = [...questions];
+                                        newQuestions[index].question_type = e.target.value;
+                                        newQuestions[index].options = [];
+                                        setQuestions(newQuestions);
+                                    }}
+                                    style={{ width: '200px', padding: '15px', fontSize: '16px' }} 
+                                >
+                                    <option value="">Select Type</option>
+                                    <option value="text">Text</option>
+                                    <option value="multiple_choice">Multiple Choice</option>
+                                    <option value="paragraph">Paragraph</option>
+                                    <option value="file">File Upload</option>
+                                </select>
+                            </div>
+
+                            {q.question_type === 'multiple_choice' && (
+                                <div>
+                                    <h4>Options:</h4>
+                                    {q.options.map((option, optionIndex) => (
+                                        <div key={optionIndex} style={{ display: 'flex', alignItems: 'center' }}>
+                                            <input 
+                                                type="checkbox" 
+                                                onChange={() => handleAnswerChange(index, option)} 
+                                            />
+                                            <input 
+                                                type="text" 
+                                                value={option} 
+                                                onChange={(e) => handleOptionChange(index, optionIndex, e.target.value)} 
+                                                placeholder={`Option ${optionIndex + 1}`} 
+                                                required 
+                                                style={{ width: '100%', padding: '15px', marginLeft: '10px', fontSize: '16px' }}
+                                            />
+                                        </div>
+                                    ))}
+                                    <button 
+                                        type="button" 
+                                        onClick={() => handleAddOption(index)}
+                                        style={{ marginTop: '10px', backgroundColor: '#007bff', color: 'white', padding: '10px 15px', border: 'none', borderRadius: '4px' }}
+                                    >
+                                        Add Option
+                                    </button>
+                                </div>
+                            )}
+                            
+                            {q.question_type === 'text' && (
+                                <div>
+                                    <h4>Answer:</h4>
+                                    <input 
+                                        type="text" 
+                                        value={answers[index] || ''} 
+                                        onChange={(e) => handleAnswerChange(index, e.target.value)} 
+                                        placeholder="Your answer..." 
+                                        required 
+                                        style={{ width: '100%', padding: '15px', fontSize: '16px' }} 
+                                    />
+                                </div>
+                            )}
+
+                            {q.question_type === 'paragraph' && (
+                                <div>
+                                    <h4>Answer:</h4>
+                                    <textarea 
+                                        value={answers[index] || ''} 
+                                        onChange={(e) => handleAnswerChange(index, e.target.value)} 
+                                        placeholder="Your answer..." 
+                                        required 
+                                        rows="4" 
+                                        style={{ width: '100%', padding: '15px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '16px' }} 
+                                    />
+                                </div>
+                            )}
+
+                            {q.question_type === 'file' && (
+                                <div>
+                                    <h4>Upload File:</h4>
+                                    <input 
+                                        type="file" 
+                                        onChange={(e) => handleFileChange(index, e)} 
+                                        required 
+                                        style={{ width: '100%', padding: '15px', borderRadius: '4px', border: '1px solid #ccc' }}
+                                    />
+                                </div>
+                            )}
+
+                            <button 
+                                type="button" 
+                                onClick={() => handleRemoveQuestion(index)} 
+                                style={{ marginTop: '10px', backgroundColor: '#dc3545', color: 'white', padding: '10px 15px', border: 'none', borderRadius: '4px' }}
+                            >
+                                Remove Question
+                            </button>
+                        </div>
+                    ))}
+                    <button 
+                        type="button" 
+                        onClick={handleAddQuestion} 
+                        style={{ marginTop: '20px', backgroundColor: '#28a745', color: 'white', padding: '10px 15px', border: 'none', borderRadius: '4px' }}
+                    >
+                        Add Question
+                    </button>
+                    <button 
+                        type="submit" 
+                        style={{ marginTop: '20px', backgroundColor: '#007bff', color: 'white', padding: '10px 15px', border: 'none', borderRadius: '4px' }}
+                    >
+                        Next Step: Answer Questions
+                    </button>
+                </form>
+            )}
+
+            {step === 2 && (
+                <form onSubmit={handleFinalSubmit}>
+                    <h2>Answer the Questions</h2>
+                    {questions.map((q, index) => (
+                        <div key={index} style={{ marginBottom: '20px' }}>
+                            <h4>{q.question_text}</h4>
+                            {q.question_type === 'multiple_choice' && (
+                                <div>
+                                    {q.options.map((option, optionIndex) => (
+                                        <div key={optionIndex} style={{ display: 'flex', alignItems: 'center' }}>
+                                            <input 
+                                                type="checkbox" 
+                                                onChange={() => handleAnswerChange(index, option)} 
+                                            />
+                                            <span style={{ marginLeft: '10px' }}>{option}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            
+                            {q.question_type === 'text' && (
+                                <input 
+                                    type="text" 
+                                    value={answers[index] || ''} 
+                                    onChange={(e) => handleAnswerChange(index, e.target.value)} 
+                                    placeholder="Your answer..." 
+                                    required 
+                                    style={{ width: '100%', padding: '15px', fontSize: '16px', marginTop: '10px' }} 
+                                />
+                            )}
+
+                            {q.question_type === 'paragraph' && (
+                                <textarea 
+                                    value={answers[index] || ''} 
+                                    onChange={(e) => handleAnswerChange(index, e.target.value)} 
+                                    placeholder="Your answer..." 
+                                    required 
+                                    rows="4" 
+                                    style={{ width: '100%', padding: '15px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '16px', marginTop: '10px' }} 
+                                />
+                            )}
+
+                            {q.question_type === 'file' && (
+                                <div>
+                                    <h4>Upload File:</h4>
+                                    <input 
+                                        type="file" 
+                                        onChange={(e) => handleFileChange(index, e)} 
+                                        required 
+                                        style={{ width: '100%', padding: '15px', borderRadius: '4px', border: '1px solid #ccc', marginTop: '10px' }}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                    <button 
+                        type="submit" 
+                        style={{ marginTop: '20px', backgroundColor: '#007bff', color: 'white', padding: '10px 15px', border: 'none', borderRadius: '4px' }}
+                    >
+                        Submit Answers
+                    </button>
+                </form>
+            )}
+        </div>
+    );
+};
+
+export default Form;
+
